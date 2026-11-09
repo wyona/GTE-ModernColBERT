@@ -31,9 +31,15 @@ corpus_embeddings = model.encode(
     batch_size=2,
     is_query=False,
 )
+print(f"Number of indexed documents: {len(corpus_embeddings)}")
+for i, emb in enumerate(corpus_embeddings):
+    number_of_token_vectors = emb.shape[0]
+    dimensions = emb.shape[1]
+    print(
+        f" -> Document {i + 1} contains {number_of_token_vectors} Token-Vectors (each {dimensions}-dimensional).")
 
 # Create search index (HNSW-Index via Voyager)
-print(f"Initialize search index and add {len(corpus_embeddings)} embeddings ...")
+print(f"Initialize search index and add embeddings ...")
 index = indexes.Voyager(
     index_folder="indexes",
     index_name="my_searchindex",
