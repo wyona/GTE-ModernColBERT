@@ -5,7 +5,8 @@
 * python3 -m venv .venv
 * source .venv/bin/activate
 * pip3 install -r requirements.txt
-* python3 src/main.py
+* python3 src/main.py --dataset mock
+* python3 src/main.py --dataset limit_small
 
 Please note, that the script picks CUDA, then Apple Silicon's GPU (MPS), then CPU.
 
