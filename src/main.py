@@ -19,7 +19,7 @@ def load_mock_data():
         {"id": "doc_3", "text": "Armand Schweda mag Quokkas und Birnen."},
         {"id": "doc_4", "text": "Flor Lemaire mag Äpfel und Orangen."},
         {"id": "doc_5", "text": "Michael mag Mangos und Datteln."},
-        {"id": "doc_5", "text": "Katerina mag Früchte, die auf Palmen wachsen."},
+        {"id": "doc_6", "text": "Katerina mag Früchte, die auf Palmen wachsen."},
     ]
     texts_by_id = {doc["id"]: doc["text"] for doc in documents}
 
