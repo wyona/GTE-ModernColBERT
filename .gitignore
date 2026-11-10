@@ -1,2 +1,4 @@
+.idea
 .venv
 indexes
+src/__pycache__
