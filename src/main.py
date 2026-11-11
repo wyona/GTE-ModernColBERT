@@ -35,7 +35,7 @@ def load_mock_data():
     relevant_documents_by_query = {
         "query_0": {"doc_1", "doc_4"},
         "query_1": {"doc_5", "doc_6"},
-        "query_2": {"doc_8", "doc_10"},
+        "query_2": {"doc_8", "doc_10"}, # For some "strange" reasons doc_8 is not ranked top, but retrieved top-5: ['doc_7', 'doc_8', 'doc_10', 'doc_5', 'doc_9']
     }
 
     return documents, texts_by_id, query_dataset, relevant_documents_by_query
