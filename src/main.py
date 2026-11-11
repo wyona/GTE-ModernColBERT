@@ -20,16 +20,22 @@ def load_mock_data():
         {"id": "doc_4", "text": "Flor Lemaire mag Äpfel und Orangen."},
         {"id": "doc_5", "text": "Michael mag Mangos und Datteln."},
         {"id": "doc_6", "text": "Katerina mag Früchte, die auf Palmen wachsen."},
+        {"id": "doc_7", "text": "Michael wurde am 16. Februar 1969 geboren."},
+        {"id": "doc_8", "text": "Michael wurde in St. Gallen geboren."},
+        {"id": "doc_9", "text": "Michael lebt in Zürich."},
+        {"id": "doc_10", "text": "Michael wurde an einem Sonntag in St. Gallen geboren."},
     ]
     texts_by_id = {doc["id"]: doc["text"] for doc in documents}
 
     query_dataset = [
         {"_id": "query_0", "text": "Wer mag Äpfel?"},
         {"_id": "query_1", "text": "Wer mag Datteln?"},
+        {"_id": "query_2", "text": "Wo wurde Michael geboren?"},
     ]
     relevant_documents_by_query = {
         "query_0": {"doc_1", "doc_4"},
         "query_1": {"doc_5", "doc_6"},
+        "query_2": {"doc_8", "doc_10"},
     }
 
     return documents, texts_by_id, query_dataset, relevant_documents_by_query
