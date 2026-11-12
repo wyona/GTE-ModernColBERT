@@ -38,11 +38,13 @@ def load_mock_data():
         {"_id": "query_0", "text": "Wer mag Äpfel?"},
         {"_id": "query_1", "text": "Wer mag Datteln?"},
         {"_id": "query_2", "text": "Wo wurde Michael geboren?"},
+        {"_id": "query_3", "text": "Where was Michael born?"},
     ]
     relevant_documents_by_query = {
         "query_0": {"doc_1", "doc_4"},
         "query_1": {"doc_5", "doc_6"},
         "query_2": {"doc_8", "doc_10"}, # For some "strange" reasons doc_8 is not ranked top, but retrieved top-5: ['doc_7', 'doc_8', 'doc_10', 'doc_5', 'doc_9']
+        "query_3": {"doc_8", "doc_10"},
     }
 
     return documents, texts_by_id, query_dataset, relevant_documents_by_query
@@ -166,6 +168,52 @@ def evaluate(model, retriever, query_dataset, relevant_documents_by_query, corpu
     }
 
 
+def decode_token_ids(tokenizer, token_ids):
+    decoded = []
+    for token_id in token_ids:
+        token_text = tokenizer.decode([int(token_id)]).strip()
+        if not token_text:
+            continue
+        if token_text.startswith("[") and token_text.endswith("]"):
+            continue
+        decoded.append(token_text)
+    return decoded
+
+
+def log_token_similarity_matrix(model, query_text, document_text):
+    query_output = model.encode([query_text], is_query=True, output_value=None, convert_to_numpy=False)
+    document_output = model.encode([document_text], is_query=False, output_value=None, convert_to_numpy=False)
+
+    query_ids = query_output["input_ids"][0]
+    document_ids = document_output["input_ids"][0]
+    query_mask = query_output["masks"][0]
+    document_mask = document_output["masks"][0]
+
+    query_ids = query_ids[query_mask]
+    document_ids = document_ids[document_mask]
+
+    query_token_text = decode_token_ids(model.tokenizer, query_ids)
+    document_token_text = decode_token_ids(model.tokenizer, document_ids)
+
+    if not query_token_text or not document_token_text:
+        print("No non-special tokens found for similarity matrix logging.")
+        return
+
+    query_embeddings = query_output["token_embeddings"][0][query_mask]
+    document_embeddings = document_output["token_embeddings"][0][document_mask]
+    token_similarity = query_embeddings @ document_embeddings.T
+
+    print(f"\nToken-level similarity matrix for query: '{query_text}'")
+    print(f"Query tokens: {query_token_text}")
+    print(f"Doc tokens  : {document_token_text}")
+
+    header = " " * 12 + " | " + " ".join(f"{token:<12}" for token in document_token_text)
+    print(header)
+    for i, query_token in enumerate(query_token_text):
+        row = " ".join(f"{token_similarity[i, j]:>7.3f}" for j in range(token_similarity.shape[1]))
+        print(f"{query_token:<12} | {row}")
+
+
 def parse_args():
     parser = argparse.ArgumentParser(description="Evaluate ColBERT retrieval on mock data or LIMIT-small.")
     parser.add_argument(
@@ -223,6 +271,14 @@ def main():
     print(f"\nExample query: '{example_query}'")
     for hit in example_results[0]:
         print(f"- [Score: {hit['score']:.4f}] {hit['id']} -> {texts_by_id[hit['id']][:120]}")
+
+    if dataset_name == "mock":
+        query_id = "query_2"
+        #query_id = "query_3"
+        query_text = next(row["text"] for row in query_dataset if row["_id"] == query_id)
+        for doc_id in ["doc_7", "doc_8"]:
+            print(f"\n--- Token similarity matrix for {query_id} vs {doc_id} ---")
+            log_token_similarity_matrix(model, query_text, texts_by_id[doc_id])
 
     evaluate(model, retriever, query_dataset, relevant_documents_by_query, corpus_name)
 
