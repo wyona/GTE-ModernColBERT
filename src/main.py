@@ -1,7 +1,14 @@
 import argparse
+import os
+from pathlib import Path
+
 import torch
 from datasets import load_dataset
+from huggingface_hub import snapshot_download
 from pylate import indexes, models, retrieve
+
+
+HUGGINGFACE_CACHE_ROOT = Path(os.environ.get("HF_HOME", Path.home() / ".cache" / "huggingface")).resolve()
 
 
 def get_device():
@@ -62,7 +69,18 @@ def load_limit_small_data():
     return documents, texts_by_id, query_dataset, relevant_documents_by_query
 
 
-def build_retriever(model, documents):
+def resolve_model_local_path(model_name_or_path):
+    if model_name_or_path.startswith("./") or model_name_or_path.startswith("/"):
+        return str(Path(model_name_or_path).resolve())
+
+    try:
+        local_dir = snapshot_download(repo_id=model_name_or_path, cache_dir=str(HUGGINGFACE_CACHE_ROOT))
+        return local_dir
+    except Exception:
+        return str(HUGGINGFACE_CACHE_ROOT / "hub" / "models--" / model_name_or_path.replace('/', '--'))
+
+
+def build_retriever(model, documents, index_name="limit_small_searchindex"):
     print(f"Generate embeddings for {len(documents)} documents, split each text into token-vectors...")
     corpus_embeddings = model.encode(
         [doc["text"] for doc in documents],
@@ -78,16 +96,19 @@ def build_retriever(model, documents):
             f" -> Document {i + 1} contains {number_of_token_vectors} Token-Vectors (each {dimensions}-dimensional)."
         )
 
-    print("Initialize search index and add embeddings...")
+    index_folder = "indexes"
+    index_path = Path(index_folder) / index_name
+    print(f"Initialize search index at '{index_path.resolve()}' and add embeddings...")
     index = indexes.Voyager(
-        index_folder="indexes",
-        index_name="limit_small_searchindex",
+        index_folder=index_folder,
+        index_name=index_name,
         override=True,
     )
     index.add_documents(
         documents_ids=[doc["id"] for doc in documents],
         documents_embeddings=corpus_embeddings,
     )
+    print(f"Index creation completed for '{index_name}' at '{index_path.resolve()}'")
     return retrieve.ColBERT(index=index)
 
 
@@ -169,11 +190,19 @@ def main():
 
     device = get_device()
     model_name_or_path = "lightonai/GTE-ModernColBERT-v1"
-    print(f"Load model '{model_name_or_path}' (device={device}) from Hugging Face...")
+    #model_name_or_path = "VAGOsolutions/SauerkrautLM-Multi-ModernColBERT"
+
+    model_local_path = resolve_model_local_path(model_name_or_path)
+    print(f"\n\nModel source: '{model_name_or_path}'")
+    print(f"Resolved local model path: '{model_local_path}'")
+    print(f"HF cache root: '{HUGGINGFACE_CACHE_ROOT}'")
+
     model = models.ColBERT(
         model_name_or_path=model_name_or_path,
         device=device,
     )
+
+    print(f"Model '{model_name_or_path}' loaded and ready for indexing/searching.")
 
     if dataset_name == "mock":
         documents, texts_by_id, query_dataset, relevant_documents_by_query = load_mock_data()
