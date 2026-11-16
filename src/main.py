@@ -38,13 +38,14 @@ def load_mock_data():
         {"_id": "query_0", "text": "Wer mag Äpfel?"},
         {"_id": "query_1", "text": "Wer mag Datteln?"},
         {"_id": "query_2", "text": "Wo wurde Michael geboren?"},
+        #{"_id": "query_2", "text": "Where wurde Michael geboren"},
         {"_id": "query_3", "text": "Where was Michael born?"},
     ]
     relevant_documents_by_query = {
-        "query_0": {"doc_1", "doc_4"},
-        "query_1": {"doc_5", "doc_6"},
-        "query_2": {"doc_8", "doc_10"}, # For some "strange" reasons doc_8 is not ranked top, but retrieved top-5: ['doc_7', 'doc_8', 'doc_10', 'doc_5', 'doc_9']
-        "query_3": {"doc_8", "doc_10"},
+        "query_0": ("doc_1", "doc_4"),
+        "query_1": ("doc_5", "doc_6"),
+        "query_2": ("doc_8", "doc_10"), # For some "strange" reasons doc_8 is not ranked top, but retrieved top-5: ['doc_7', 'doc_8', 'doc_10', 'doc_5', 'doc_9']
+        "query_3": ("doc_8", "doc_10"),
     }
 
     return documents, texts_by_id, query_dataset, relevant_documents_by_query
@@ -66,7 +67,10 @@ def load_limit_small_data():
         query_id = row["query-id"]
         corpus_id = row["corpus-id"]
         if row["score"] > 0:
-            relevant_documents_by_query.setdefault(query_id, set()).add(corpus_id)
+            if query_id not in relevant_documents_by_query:
+                relevant_documents_by_query[query_id] = []
+            if corpus_id not in relevant_documents_by_query[query_id]:
+                relevant_documents_by_query[query_id].append(corpus_id)
 
     return documents, texts_by_id, query_dataset, relevant_documents_by_query
 
@@ -127,15 +131,20 @@ def evaluate(model, retriever, query_dataset, relevant_documents_by_query, corpu
         results = retriever.retrieve(queries_embeddings=query_embeddings, k=5)
 
         retrieved_ids = [hit["id"] for hit in results[0]]
-        relevant_ids = relevant_documents_by_query.get(query_id, set())
+        relevant_ids = relevant_documents_by_query.get(query_id, [])
+        if isinstance(relevant_ids, set):
+            relevant_ids = list(dict.fromkeys(relevant_ids))
+        else:
+            relevant_ids = list(relevant_ids)
+        relevant_id_set = set(relevant_ids)
 
         if relevant_ids:
-            recall_at_2 = len(set(retrieved_ids[:2]) & relevant_ids) / len(relevant_ids)
-            recall_at_5 = len(set(retrieved_ids[:5]) & relevant_ids) / len(relevant_ids)
+            recall_at_2 = len(set(retrieved_ids[:2]) & relevant_id_set) / len(relevant_id_set)
+            recall_at_5 = len(set(retrieved_ids[:5]) & relevant_id_set) / len(relevant_id_set)
 
             reciprocal_rank = 0.0
             for rank, doc_id in enumerate(retrieved_ids[:5], start=1):
-                if doc_id in relevant_ids:
+                if doc_id in relevant_id_set:
                     reciprocal_rank = 1.0 / rank
                     break
         else:
@@ -150,7 +159,7 @@ def evaluate(model, retriever, query_dataset, relevant_documents_by_query, corpu
         if len(recall_at_2_values) <= 3:
             print(f"Query '{query_id}': '{query_text}'")
             print(f" -> retrieved top-5: {retrieved_ids}")
-            print(f" -> relevant: {sorted(relevant_ids)}")
+            print(f" -> relevant: {relevant_ids}")
             print(f" -> Recall@2: {recall_at_2:.4f}, Recall@5: {recall_at_5:.4f}, MRR: {reciprocal_rank:.4f}")
 
     avg_recall_at_2 = sum(recall_at_2_values) / len(recall_at_2_values) if recall_at_2_values else 0.0
