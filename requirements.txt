@@ -1,3 +1,5 @@
 pylate
 datasets
 voyager<2.2
+fastapi
+uvicorn
