@@ -7,6 +7,11 @@
 * pip3 install -r requirements.txt
 * python3 src/main.py --dataset mock
 * python3 src/main.py --dataset limit_small
+* python3 src/main.py --serve --host 127.0.0.1 --port 8000
+  * GET http://127.0.0.1:8000/health
+  * POST http://127.0.0.1:8000/v1/embed/documents
+  * POST http://127.0.0.1:8000/v1/embed/queries
+  * POST http://127.0.0.1:8000//v1/embeddings
 
 Please note, that the script picks CUDA, then Apple Silicon's GPU (MPS), then CPU.
 
@@ -16,6 +21,8 @@ Please note, that the script picks CUDA, then Apple Silicon's GPU (MPS), then CP
 * indexes.Voyager stores the vectors
 * retrieve.ColBERT runs the search
 
-## TODOs
+## LIMIT-small benchmark
 
-* Compare results of LIMIT-Small with https://openreview.net/forum?id=k9CzIvzfaA&noteId=fTsViv8muf
+* Compare results using GTE-ModernColBERT for LIMIT-Small with https://openreview.net/forum?id=k9CzIvzfaA&noteId=fTsViv8muf
+  * According to a comment the authors receive: recall@2: 0.835
+  * With our implementation we receive: recall@2: 0.9975
