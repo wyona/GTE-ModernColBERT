@@ -29,3 +29,8 @@ Please note, that the script picks CUDA, then Apple Silicon's GPU (MPS), then CP
 * Compare results using GTE-ModernColBERT for LIMIT-Small with https://openreview.net/forum?id=k9CzIvzfaA&noteId=fTsViv8muf
   * According to a comment the authors receive: recall@2: 0.835
   * With our implementation we receive: recall@2: 0.9975
+
+## Resources
+
+* ColBERT: Efficient and Effective Passage Search via Contextualized Late Interaction over BERT: https://arxiv.org/pdf/2004.12832
+* ColBERTv2: Effective and Efficient Retrieval via Lightweight Late Interaction: https://arxiv.org/html/2112.01488v3
