@@ -294,7 +294,7 @@ def log_token_similarity_matrix(model, query_text, document_text):
     document_embeddings = document_output["token_embeddings"][0][document_mask]
     token_similarity = query_embeddings @ document_embeddings.T
 
-    print(f"\nToken-level similarity matrix for query '{query_text}' and document '{document_text}'")
+    print(f"\nContextualized token-level similarity matrix for query '{query_text}' and document '{document_text}'")
     print(f"Query tokens: {query_token_text}")
     print(f"Doc tokens  : {document_token_text}")
 
