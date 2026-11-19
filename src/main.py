@@ -3,12 +3,94 @@ import os
 from pathlib import Path
 
 import torch
+import uvicorn
 from datasets import load_dataset
+from fastapi import FastAPI, HTTPException
 from huggingface_hub import snapshot_download
+from pydantic import BaseModel, Field
 from pylate import indexes, models, retrieve
 
 
 HUGGINGFACE_CACHE_ROOT = Path(os.environ.get("HF_HOME", Path.home() / ".cache" / "huggingface")).resolve()
+
+
+class EmbeddingsRequest(BaseModel):
+    text: str | None = Field(default=None, description="Single input text to embed. Use either text or texts.")
+    texts: list[str] | None = Field(default=None, description="Multiple input texts to embed.")
+    is_query: bool = Field(default=False, description="Whether the texts are queries or documents.")
+
+    @property
+    def resolved_texts(self):
+        if self.texts is not None:
+            items = self.texts
+        elif self.text is not None:
+            items = [self.text]
+        else:
+            items = []
+        if not items:
+            raise HTTPException(status_code=400, detail="Either 'text' or 'texts' must be provided.")
+        return items
+
+
+app = FastAPI(title="GTE-ModernColBERT Embedding API")
+MODEL = None
+
+
+def get_model():
+    global MODEL
+    if MODEL is None:
+        model_name_or_path = "lightonai/GTE-ModernColBERT-v1"
+        MODEL = models.ColBERT(
+            model_name_or_path=model_name_or_path,
+            device=get_device(),
+        )
+    return MODEL
+
+
+def serialize_embeddings(raw_embeddings):
+    if hasattr(raw_embeddings, "tolist"):
+        return raw_embeddings.tolist()
+    if isinstance(raw_embeddings, list):
+        return [serialize_embeddings(item) for item in raw_embeddings]
+    return raw_embeddings
+
+
+@app.get("/health")
+def health():
+    return {"status": "ok", "model": "lightonai/GTE-ModernColBERT-v1"}
+
+
+@app.post("/v1/embed/documents")
+def embed_documents(payload: EmbeddingsRequest):
+    payload.is_query = False
+    return _embed_texts(payload)
+
+
+@app.post("/v1/embed/queries")
+def embed_queries(payload: EmbeddingsRequest):
+    payload.is_query = True
+    return _embed_texts(payload)
+
+
+@app.post("/v1/embeddings")
+def embed_generic(payload: EmbeddingsRequest):
+    return _embed_texts(payload)
+
+
+def _embed_texts(payload: EmbeddingsRequest):
+    texts = payload.resolved_texts
+    embeddings = get_model().encode(
+        texts,
+        is_query=payload.is_query,
+        batch_size=32,
+        convert_to_numpy=True,
+    )
+    flattened = [serialize_embeddings(item) for item in embeddings]
+    return {
+        "is_query": payload.is_query,
+        "count": len(flattened),
+        "embeddings": flattened,
+    }
 
 
 def get_device():
@@ -224,7 +306,7 @@ def log_token_similarity_matrix(model, query_text, document_text):
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Evaluate ColBERT retrieval on mock data or LIMIT-small.")
+    parser = argparse.ArgumentParser(description="Evaluate ColBERT retrieval on mock data or LIMIT-small, or serve the embedding sidecar API.")
     parser.add_argument(
         "--dataset",
         choices=["mock", "limit_small"],
@@ -237,11 +319,31 @@ def parse_args():
         default=None,
         help="Optional limit for the number of queries to evaluate (useful for quick tests).",
     )
+    parser.add_argument(
+        "--serve",
+        action="store_true",
+        help="Start the FastAPI sidecar endpoint instead of running the local evaluation pipeline.",
+    )
+    parser.add_argument(
+        "--host",
+        default="0.0.0.0",
+        help="Host for the FastAPI server when --serve is enabled.",
+    )
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=8000,
+        help="Port for the FastAPI server when --serve is enabled.",
+    )
     return parser.parse_args()
 
 
 def main():
     args = parse_args()
+    if args.serve:
+        uvicorn.run(app, host=args.host, port=args.port)
+        return
+
     dataset_name = args.dataset
     max_queries = args.max_queries
 
@@ -272,6 +374,7 @@ def main():
         query_dataset = query_dataset[:max_queries]
         print(f"Only evaluating the first {len(query_dataset)} queries (requested via --max-queries={max_queries}).")
 
+    # TODO: Add index name
     retriever = build_retriever(model, documents)
 
     example_query = query_dataset[0]["text"]
