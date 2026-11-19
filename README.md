@@ -10,8 +10,11 @@
 * python3 src/main.py --serve --host 127.0.0.1 --port 8000
   * GET http://127.0.0.1:8000/health
   * POST http://127.0.0.1:8000/v1/embed/documents
+    * curl -sS -X POST http://127.0.0.1:8000/v1/embed/documents -H 'Content-Type: application/json' -d '{"text":"Michael mag Äpfel"}'
   * POST http://127.0.0.1:8000/v1/embed/queries
+    * curl -sS -X POST http://127.0.0.1:8000/v1/embed/queries -H 'Content-Type: application/json' -d '{"text":"Wer mag Äpfel?"}'
   * POST http://127.0.0.1:8000//v1/embeddings
+    * curl -sS -X POST http://127.0.0.1:8000/v1/embeddings -H 'Content-Type: application/json' -d '{"text":"Michael mag Äpfel","is_query":true}'
 
 Please note, that the script picks CUDA, then Apple Silicon's GPU (MPS), then CPU.
 
